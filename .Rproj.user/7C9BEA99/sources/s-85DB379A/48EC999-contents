@@ -1,0 +1,151 @@
+---
+title: "PLN example: EVHOE data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(corrplot)
+library(dplyr)
+library(ggplot2)
+library(rnaturalearth)
+library(PLNmodels)
+library(stringr)
+library(tidyr)
+
+knitr::opts_chunk$set(echo = TRUE)
+
+mapBase <- ne_countries(scale = "medium", returnclass = "sf")
+
+source("function/data_catch.nbr_sp.as.column.R")
+
+```
+
+# EVHOE Data
+
+```{r}
+
+load("data/EVHOE_2008_2019.RData")
+
+# Catch at size (data key: per haul, species, length class, sex, maturity, age)
+HL_df <- Save_Datras$datras_sp.HL.full
+
+# Pass species into column
+Survey.data_catch_nbr <- data_catch.nbr_sp.as.column(HL_df) %>%
+  mutate(Area = ifelse(lati > 48,"CS","BoB"))
+
+# Plot hauls
+plot_1 <- ggplot(Survey.data_catch_nbr)+
+  geom_point(aes(x=long,y=lati,col=factor(Stratum)))+
+  geom_sf(data = mapBase) +
+  coord_sf(xlim = c(-12,0), ylim = c(43,52), expand = FALSE) +
+  theme_classic()+
+  theme(panel.spacing.x = unit(6, "mm"),
+        axis.text.x = element_text(angle=90,vjust=0.5), 
+        legend.title = element_blank(),
+        plot.title = element_text(hjust = 0.5,face = "bold"))+
+  xlab("")+ylab("")
+
+plot(plot_1)
+
+```
+
+
+# Shape inputs / exploratory analysis
+
+```{r}
+
+# Filter only 2018 data
+Survey.data_catch_nbr_2 <- Survey.data_catch_nbr %>%
+  filter(Year%in%c(2008:2019)) # 
+
+# Make abundance matrix
+Abundance <-  Survey.data_catch_nbr_2 %>%
+  ungroup %>%
+  select_at(vars(contains("TotalNo_"))) %>%
+  as_tibble() %>%
+  trunc
+
+# Take the 25 more abundant species
+spp_arrange <- data.frame(spp=colnames(Abundance),Ab=colSums(Abundance)) %>%
+  arrange(desc(Ab))
+spp_name <- spp_arrange$spp[1:25]
+Abundance_2 <- Abundance[,spp_name]
+
+# Plot correlation
+cor_df <- cor(log(Abundance_2[,]+1))
+corrplot::corrplot(corr = cor_df,
+                   addgrid.col = NA,
+                   tl.cex=0.65,
+                   cl.pos="n",
+                   cl.lim=c(-1,1))
+
+# Shape model inputs
+model_inputs <- prepare_data(counts = Abundance_2,
+                             covariates = as.factor(Survey.data_catch_nbr_2$Stratum))
+
+# 
+# as.factor(Survey.data_catch_nbr_2$Area)
+
+
+# # Extract species with correlation superior to threshold
+# threshold <- 0.75
+# cor_df_2 <- cor_df
+# cor_df_2[which(abs(cor_df_2) < threshold)] <- NA
+# cor_df_2[which(cor_df_2 == 1)] <- NA
+# cor_df_3 <- do.call(rbind,lapply(1:nrow(cor_df_2), function(j){
+#   if(T %in% !is.na(cor_df_2[,j])){
+#     index <- which(!is.na(cor_df_2[,j]))
+#     spp1 <- rownames(cor_df_2)[index]
+#     spp1 <- str_remove(spp1,"TotalNo_")
+#     spp2 <- rep(colnames(cor_df_2)[j],length(spp1))
+#     spp2 <- str_remove(spp2,"TotalNo_")
+#     corr_c <- cor_df_2[index,j]
+#     res <- data.frame(spp1=spp1,spp2=spp2,corr=corr_c)
+#     row.names(res) <- NULL
+#   }else{
+#     res <- NULL
+#   }
+#   return(res)
+# }))
+
+```
+
+
+# Fit PLN model
+
+## LDA (stratum=depth as factor)
+
+```{r}
+
+res <- PLNLDA(Abundance ~ 1, grouping = covariates,data = model_inputs)
+plot(res,nb_axes = 2)
+
+```
+
+
+## PCA (Area - Bay of Biscay / Celtic Sea - as qualitative supplementary variable)
+
+```{r}
+
+res <- PLNPCA(Abundance ~ 1,data=model_inputs,ranks=1:7)
+plot(res)
+res_best <-  getBestModel(res,"BIC")
+plot(res_best,nb_axes = 2,ind_cols = as.factor(Survey.data_catch_nbr_2$Area))
+
+# Covariance matrix
+sigma_df <- sigma(res_best)
+colnames(sigma_df) <- str_remove(colnames(sigma_df),"TotalNo_")
+rownames(sigma_df) <- str_remove(rownames(sigma_df),"TotalNo_")
+corrplot(sigma_df,
+         is.corr = FALSE,
+         addgrid.col = NA,
+         tl.cex=0.65)
+
+```
+
+# Some references
+
+https://jchiquet.github.io/assets/pdf/Chiquet_ecodep.pdf
+
+https://pln-team.github.io/PLNmodels/articles/
