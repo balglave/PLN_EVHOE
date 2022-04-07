@@ -25,7 +25,7 @@ source("function/data_catch.nbr_sp.as.column.R")
 
 ```{r}
 
-load("data/EVHOE_2008_2019.RData")
+load("data/EVHOE_1997_2021.RData")
 
 # Catch at size (data key: per haul, species, length class, sex, maturity, age)
 HL_df <- Save_Datras$datras_sp.HL.full
@@ -57,7 +57,7 @@ plot(plot_1)
 
 # Filter only 2018 data
 Survey.data_catch_nbr_2 <- Survey.data_catch_nbr %>%
-  filter(Year%in%c(2008:2019))
+  filter(Year%in%c(1997:2021)) # 
 
 # Make abundance matrix
 Abundance <-  Survey.data_catch_nbr_2 %>%
