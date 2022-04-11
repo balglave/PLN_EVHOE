@@ -82,7 +82,7 @@ corrplot::corrplot(corr = cor_df,
 
 # Shape model inputs
 model_inputs <- prepare_data(counts = Abundance_2,
-                             covariates = as.factor(Survey.data_catch_nbr_2$Stratum))
+                             covariates = as.factor(Survey.data_catch_nbr_2$Stratum),)
 
 # 
 # as.factor(Survey.data_catch_nbr_2$Area)
