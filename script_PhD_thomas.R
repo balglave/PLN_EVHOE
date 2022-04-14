@@ -44,11 +44,11 @@ plot(res)
 res_best <-  getBestModel(res,"BIC")
 plot(res_best,nb_axes = 2)
 
-save(file="res/PhD_Outrequin/res_best.RData",data=res_best)
-
+# save(file="res/PhD_Outrequin/res_best.RData",data=res_best)
+load("res/PhD_Outrequin/res_best.RData")
 
 # Make HCPC
 PC_df <- data.frame(PC=res_best$scores,unique_id=spe_2$unique_id)
-save(file="res/PhD_Outrequin/PC_df.RData",data=PC_df)
+# save(file="res/PhD_Outrequin/PC_df.RData",data=PC_df)
 res <- HCPC(as.data.frame(res_best$scores))
 
